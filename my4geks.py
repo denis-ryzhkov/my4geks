@@ -1,5 +1,5 @@
 """
-my4geks version 0.1.0
+my4geks version 0.1.1
 https://github.com/denis-ryzhkov/my4geks
 
 Copyright (C) 2015 by Denis Ryzhkov <denisr@denisr.com>
@@ -19,7 +19,7 @@ import time
 
 db_config = adict(
     host='127.0.0.1',
-    port=5432,
+    port=3306,
     user='user',
     password='password',
     database='test',

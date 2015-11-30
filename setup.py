@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='my4geks',
-    version='0.1.0',
+    version='0.1.1',
     description='MySQL for Gevent kept Simple.',
     long_description='''
 Usage::
@@ -12,7 +12,7 @@ Usage::
     from my4geks import db, db_config, db_transaction
 
     db_config.update(user='user', password='password', database='test')
-        # Defaults: host='127.0.0.1', port=5432, pool_size=10.
+        # Defaults: host='127.0.0.1', port=3306, pool_size=10.
 
     def on_request(): # Inside a greenlet:
         item = db('SELECT * FROM `items` WHERE `id` = %s', item_id).row
