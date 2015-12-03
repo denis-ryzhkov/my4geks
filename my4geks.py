@@ -1,5 +1,5 @@
 """
-my4geks version 0.1.1
+my4geks version 0.1.2
 https://github.com/denis-ryzhkov/my4geks
 
 Copyright (C) 2015 by Denis Ryzhkov <denisr@denisr.com>
@@ -11,6 +11,7 @@ MIT License, see http://opensource.org/licenses/MIT
 from adict import adict
 from gevent.local import local
 from gevent.queue import Queue
+from gevent.timeout import Timeout
 import pymysql
 import sys
 import time
@@ -23,6 +24,7 @@ db_config = adict(
     user='user',
     password='password',
     database='test',
+    query_timeout=50, # Less than default web timeout of 60 seconds.
     pool_size=10,
     _pool=None,
 )
@@ -49,13 +51,36 @@ def _create_db_conn():
     db_conn.set_charset('utf8')
     return db_conn
 
-### db_transaction
+### _local
 
 _local = local()
+
+### _reconnect
+
+def _reconnect(initial_seconds, max_seconds):
+    seconds_before_reconnect = initial_seconds
+    while True:
+
+        try:
+            _local.db_conn.close()
+        except Exception:
+            pass
+
+        try:
+            _local.db_conn = _create_db_conn()
+            break
+        except Exception:
+            seconds_before_reconnect = min(max_seconds, seconds_before_reconnect * 2)
+            time.sleep(seconds_before_reconnect)
+
+    return _local.db_conn
+
+### db_transaction
 
 def db_transaction(code, initial_seconds=0.1, max_seconds=10.0):
     """
     Commits on success.
+    Kills slow query, reconnects and raises on timeout.
     Rolls back on any error.
     Reconnects on any error except lock.
     Retries with back off on lock or broken connection.
@@ -106,8 +131,24 @@ def db_transaction(code, initial_seconds=0.1, max_seconds=10.0):
                 db_conn.commit()
                 return result
 
+            ### Kills slow query, reconnects and raises on timeout.
+
+            except Timeout:
+                e_type, e_value, e_traceback = sys.exc_info()
+                slow_id = db_conn.thread_id()
+                db_conn = _reconnect(initial_seconds, max_seconds)
+
+                try:
+                    db_conn.kill(slow_id)
+                except Exception:
+                    pass
+
+                raise e_type, e_value, e_traceback
+
+            ### error
+
             except Exception:
-                e_type, e_value, e_traceback = sys.exc_info() # Save original exception context.
+                e_type, e_value, e_traceback = sys.exc_info()
                 e_repr = repr(e_value)
 
                 is_lock = (
@@ -135,20 +176,7 @@ def db_transaction(code, initial_seconds=0.1, max_seconds=10.0):
                 ### Reconnects on any error except lock.
 
                 if not is_lock:
-                    seconds_before_reconnect = initial_seconds
-                    while True:
-
-                        try:
-                            db_conn.close()
-                        except Exception:
-                            pass
-
-                        try:
-                            db_conn = _local.db_conn = _create_db_conn()
-                            break
-                        except Exception:
-                            seconds_before_reconnect = min(max_seconds, seconds_before_reconnect * 2)
-                            time.sleep(seconds_before_reconnect)
+                    db_conn = _reconnect(initial_seconds, max_seconds)
 
                 ### Retries with back off on lock or broken connection.
 
@@ -159,7 +187,7 @@ def db_transaction(code, initial_seconds=0.1, max_seconds=10.0):
 
                 ### Raises other errors.
 
-                raise e_type, e_value, e_traceback # Reraise original exception context.
+                raise e_type, e_value, e_traceback
 
     ### Return connection to the pool.
 
@@ -185,7 +213,8 @@ def db(sql, *values):
 
     def code():
         with _local.db_conn.cursor() as cursor:
-            cursor.execute(sql, values)
+            with Timeout(db_config.query_timeout):
+                cursor.execute(sql, values)
             return cursor.fetchall()
 
     rows = db_transaction(code)
