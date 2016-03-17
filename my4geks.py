@@ -1,5 +1,5 @@
 """
-my4geks version 0.1.3
+my4geks version 0.1.4
 https://github.com/denis-ryzhkov/my4geks
 
 Copyright (C) 2015-2016 by Denis Ryzhkov <denisr@denisr.com>
@@ -16,9 +16,13 @@ import pymysql
 import sys
 import time
 
-### override
+### adict cursor
 
-pymysql.cursors.DictCursorMixin.dict_type = adict
+class AdictCursorMixin(pymysql.cursors.DictCursorMixin):
+    dict_type = adict
+
+class AdictCursor(AdictCursorMixin, pymysql.cursors.Cursor):
+    """A cursor which returns results as a dict with attr access to keys."""
 
 ### db_config
 
@@ -29,6 +33,7 @@ db_config = adict(
     password='password',
     database='test',
     charset='utf8',
+    cursor_class=AdictCursor,
     query_timeout=55, # Less than default web timeout of 60 seconds, but greater than default "innodb_lock_wait_timeout" of 50 seconds.
     pool_size=10,
     _pool=None,
@@ -50,7 +55,7 @@ def _create_db_conn():
         user=db_config.user,
         password=db_config.password,
         database=db_config.database,
-        cursorclass=pymysql.cursors.DictCursor, # Inherited from "DictCursorMixin" with "dict_type=adict" override done above.
+        cursorclass=db_config.cursor_class,
     )
     db_conn = pymysql.connect(**cfg)
     db_conn.set_charset(db_config.charset)

@@ -13,7 +13,7 @@ Usage:
     from my4geks import db, db_config, db_transaction
 
     db_config.update(user='user', password='password', database='test')
-        # Defaults: host='127.0.0.1', port=3306, pool_size=10, query_timeout=55, charset='utf8'.
+        # Defaults: host='127.0.0.1', port=3306, pool_size=10, query_timeout=55, charset='utf8', cursor_class=AdictCursor.
 
     def on_request(): # Inside a greenlet:
 
@@ -29,6 +29,6 @@ Usage:
             db('INSERT INTO `table2` (`quantity`) VALUES (%s)', +1/0)
         db_transaction(code)
 
-my4geks version 0.1.3  
+my4geks version 0.1.4  
 Copyright (C) 2015-2016 by Denis Ryzhkov <denisr@denisr.com>  
 MIT License, see http://opensource.org/licenses/MIT
