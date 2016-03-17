@@ -1,8 +1,8 @@
 """
-my4geks version 0.1.2
+my4geks version 0.1.3
 https://github.com/denis-ryzhkov/my4geks
 
-Copyright (C) 2015 by Denis Ryzhkov <denisr@denisr.com>
+Copyright (C) 2015-2016 by Denis Ryzhkov <denisr@denisr.com>
 MIT License, see http://opensource.org/licenses/MIT
 """
 
@@ -16,6 +16,10 @@ import pymysql
 import sys
 import time
 
+### override
+
+pymysql.cursors.DictCursorMixin.dict_type = adict
+
 ### db_config
 
 db_config = adict(
@@ -24,7 +28,8 @@ db_config = adict(
     user='user',
     password='password',
     database='test',
-    query_timeout=50, # Less than default web timeout of 60 seconds.
+    charset='utf8',
+    query_timeout=55, # Less than default web timeout of 60 seconds, but greater than default "innodb_lock_wait_timeout" of 50 seconds.
     pool_size=10,
     _pool=None,
 )
@@ -45,10 +50,10 @@ def _create_db_conn():
         user=db_config.user,
         password=db_config.password,
         database=db_config.database,
-        cursorclass=pymysql.cursors.DictCursor,
+        cursorclass=pymysql.cursors.DictCursor, # Inherited from "DictCursorMixin" with "dict_type=adict" override done above.
     )
     db_conn = pymysql.connect(**cfg)
-    db_conn.set_charset('utf8')
+    db_conn.set_charset(db_config.charset)
     return db_conn
 
 ### _local
@@ -198,27 +203,42 @@ def db_transaction(code, initial_seconds=0.1, max_seconds=10.0):
 
 ### db
 
-def db(sql, *values):
+def db(sql, *values, **params):
     """
     Queries DB and returns result.
 
     @param str sql - SQL with %s placehodlers.
         Do NOT add quotes or IN-brackets around %s.
         E.g. db('...WHERE `name` IN %s', [value1, value2])
+
     @param tuple values - Values for %s placehodlers.
+
+    @param dict params:
+        str charset - E.g. "utf8mb4" for tables with Emoji.
+
     @return adict:
         list(adict) rows - All rows in result.
         adict|NoneType row - First row, if any.
+        int affected - Number of rows affected.
     """
 
+    charset = params.get('charset', db_config.charset)
+
     def code():
+
+        if _local.db_conn.charset != charset:
+            _local.db_conn.set_charset(charset)
+
         with _local.db_conn.cursor() as cursor:
             with Timeout(db_config.query_timeout):
                 cursor.execute(sql, values)
-            return cursor.fetchall()
+            return cursor.fetchall(), cursor.rowcount
 
-    rows = db_transaction(code)
-        # It's just "rows = code()" if already inside a transaction.
+    rows, affected = db_transaction(code)
+        # It's just "rows, affected = code()" if already inside a transaction.
 
-    rows = [adict(row) for row in rows]
-    return adict(rows=rows, row=rows[0] if rows else None)
+    return adict(
+        rows=rows,
+        row=rows[0] if rows else None,
+        affected=affected,
+    )

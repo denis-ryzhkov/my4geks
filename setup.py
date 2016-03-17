@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='my4geks',
-    version='0.1.2',
+    version='0.1.3',
     description='MySQL for Gevent kept Simple.',
     long_description='''
 Usage::
@@ -12,13 +12,16 @@ Usage::
     from my4geks import db, db_config, db_transaction
 
     db_config.update(user='user', password='password', database='test')
-        # Defaults: host='127.0.0.1', port=3306, pool_size=10, query_timeout=50.
+        # Defaults: host='127.0.0.1', port=3306, pool_size=10, query_timeout=55, charset='utf8'.
 
     def on_request(): # Inside a greenlet:
-        item = db('SELECT * FROM `items` WHERE `id` = %s', item_id).row
+
+        item = db('SELECT * FROM `items` WHERE `id` = %s', item_id, charset='utf8mb4').row
 
         for item in db('SELECT `id`, `name` FROM `items` WHERE `name` IN %s, [value1, value2]).rows:
             print('{}\t{}'.format(item.id, item.name))
+
+        assert db('UPDATE `items` SET `name` = %s WHERE `name` = %s', new_value, old_value).affected # rowcount
 
         def code():
             db('INSERT INTO `table1` (`quantity`) VALUES (%s)', -100)
