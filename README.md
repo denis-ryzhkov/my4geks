@@ -29,6 +29,6 @@ Usage:
             db('INSERT INTO `table2` (`quantity`) VALUES (%s)', +1/0)
         db_transaction(code)
 
-my4geks version 0.1.4  
+my4geks version 0.1.6  
 Copyright (C) 2015-2016 by Denis Ryzhkov <denisr@denisr.com>  
 MIT License, see http://opensource.org/licenses/MIT

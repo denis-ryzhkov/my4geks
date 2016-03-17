@@ -1,5 +1,5 @@
 """
-my4geks version 0.1.4
+my4geks version 0.1.6
 https://github.com/denis-ryzhkov/my4geks
 
 Copyright (C) 2015-2016 by Denis Ryzhkov <denisr@denisr.com>
@@ -243,7 +243,7 @@ def db(sql, *values, **params):
         # It's just "rows, affected = code()" if already inside a transaction.
 
     return adict(
-        rows=rows,
+        rows=rows if isinstance(rows, list) else list(rows), # E.g. "DictCursorMixin" creates "list" from "tuple" only if it is not empty.
         row=rows[0] if rows else None,
         affected=affected,
     )

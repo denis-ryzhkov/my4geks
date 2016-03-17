@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
     name='my4geks',
-    version='0.1.4',
+    version='0.1.6',
     description='MySQL for Gevent kept Simple.',
     long_description='''
 Usage::
